@@ -95,6 +95,29 @@
             position: sticky;
             top: 0;
         }
+        th.sortable {
+            cursor: pointer;
+            user-select: none;
+            transition: color 0.2s;
+        }
+        th.sortable:hover {
+            color: #e2e8f0;
+        }
+        th.sortable::after {
+            content: ' ⇅';
+            font-size: 11px;
+            opacity: 0.4;
+        }
+        th.sortable.asc::after {
+            content: ' ↑';
+            opacity: 1;
+            color: #38bdf8;
+        }
+        th.sortable.desc::after {
+            content: ' ↓';
+            opacity: 1;
+            color: #38bdf8;
+        }
         td {
             padding: 8px 12px;
             border-bottom: 1px solid #1e293b;
@@ -514,35 +537,79 @@ new Chart(document.getElementById('winRateChart'), {
     plugins: [ChartDataLabels]
 });
 
-// 8. Data table
-const tableSorted = [...data].sort((a, b) => (pct(b['累计变化']) || -999) - (pct(a['累计变化']) || -999));
-let tableHTML = `<table><thead><tr>
-    <th>#</th><th>姓名</th><th>代码</th><th>上市日期</th>
-    <th>招股价</th><th>上市价</th><th>最后价格</th>
-    <th>超额认购</th><th>中签率</th><th>首日变化</th><th>累计变化</th>
-</tr></thead><tbody>`;
+// 8. Data table with sorting
+let currentSort = { key: '累计变化', dir: 'desc' };
 
-tableSorted.forEach((d, i) => {
-    const acc = pct(d['累计变化']);
-    const debut = pct(d['首日变化']);
-    const accClass = acc !== null ? (acc >= 0 ? 'badge-green' : 'badge-red') : '';
-    const debutClass = debut !== null ? (debut >= 0 ? 'badge-green' : 'badge-red') : '';
-    tableHTML += `<tr>
-        <td>${i + 1}</td>
-        <td><strong>${d['姓名']}</strong></td>
-        <td>${d['代码']}</td>
-        <td>${d['上市日期']}</td>
-        <td>${d['招股价']}</td>
-        <td>${d['上市价']}</td>
-        <td>${d['最后价格']}</td>
-        <td>${d['超额认购倍数'] || 'N/A'}</td>
-        <td>${d['单批次成功率'] || 'N/A'}</td>
-        <td><span class="badge ${debutClass}">${d['首日变化'] || 'N/A'}</span></td>
-        <td><span class="badge ${accClass}">${d['累计变化'] || 'N/A'}</span></td>
-    </tr>`;
-});
-tableHTML += '</tbody></table>';
-document.getElementById('dataTable').innerHTML = tableHTML;
+function renderTable() {
+    const tableSorted = [...data].sort((a, b) => {
+        const key = currentSort.key;
+        let va, vb;
+        if (key === '上市日期') {
+            va = a[key] ? new Date(a[key].replace(/\//g, '-')).getTime() : 0;
+            vb = b[key] ? new Date(b[key].replace(/\//g, '-')).getTime() : 0;
+        } else if (key === '中签率') {
+            va = pct(a['单批次成功率']);
+            vb = pct(b['单批次成功率']);
+        } else {
+            va = pct(a[key]);
+            vb = pct(b[key]);
+        }
+        if (va === null) va = -Infinity;
+        if (vb === null) vb = -Infinity;
+        return currentSort.dir === 'desc' ? vb - va : va - vb;
+    });
+
+    const sortCls = (key) => {
+        if (currentSort.key !== key) return 'sortable';
+        return 'sortable ' + currentSort.dir;
+    };
+
+    let tableHTML = `<table><thead><tr>
+        <th>#</th><th>姓名</th><th>代码</th>
+        <th class="${sortCls('上市日期')}" data-sort="上市日期">上市日期</th>
+        <th>招股价</th><th>上市价</th><th>最后价格</th>
+        <th>超额认购</th>
+        <th class="${sortCls('中签率')}" data-sort="中签率">中签率</th>
+        <th class="${sortCls('首日变化')}" data-sort="首日变化">首日变化</th>
+        <th class="${sortCls('累计变化')}" data-sort="累计变化">累计变化</th>
+    </tr></thead><tbody>`;
+
+    tableSorted.forEach((d, i) => {
+        const acc = pct(d['累计变化']);
+        const debut = pct(d['首日变化']);
+        const accClass = acc !== null ? (acc >= 0 ? 'badge-green' : 'badge-red') : '';
+        const debutClass = debut !== null ? (debut >= 0 ? 'badge-green' : 'badge-red') : '';
+        tableHTML += `<tr>
+            <td>${i + 1}</td>
+            <td><strong>${d['姓名']}</strong></td>
+            <td>${d['代码']}</td>
+            <td>${d['上市日期']}</td>
+            <td>${d['招股价']}</td>
+            <td>${d['上市价']}</td>
+            <td>${d['最后价格']}</td>
+            <td>${d['超额认购倍数'] || 'N/A'}</td>
+            <td>${d['单批次成功率'] || 'N/A'}</td>
+            <td><span class="badge ${debutClass}">${d['首日变化'] || 'N/A'}</span></td>
+            <td><span class="badge ${accClass}">${d['累计变化'] || 'N/A'}</span></td>
+        </tr>`;
+    });
+    tableHTML += '</tbody></table>';
+    document.getElementById('dataTable').innerHTML = tableHTML;
+
+    document.querySelectorAll('#dataTable th.sortable').forEach(th => {
+        th.addEventListener('click', () => {
+            const key = th.dataset.sort;
+            if (currentSort.key === key) {
+                currentSort.dir = currentSort.dir === 'desc' ? 'asc' : 'desc';
+            } else {
+                currentSort.key = key;
+                currentSort.dir = 'desc';
+            }
+            renderTable();
+        });
+    });
+}
+renderTable();
 </script>
 </body>
 </html>
