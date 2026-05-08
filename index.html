@@ -182,7 +182,31 @@
             <div class="chart-container"><canvas id="winRateChart"></canvas></div>
         </div>
         <div class="chart-card full-width">
-            <h3>📋 完整 IPO 数据表（按累计涨幅排序）</h3>
+            <h3>💰 策略 A：1 手申购 · 持有至今（100 账户 · 每户 1 万港币）</h3>
+            <p style="color:#94a3b8;font-size:13px;margin-bottom:12px">假设：每个账户申购 1 手 · 中签后持有至今 · 资金循环使用 · 不计手续费和融资利息</p>
+            <div class="stats-grid" id="strategyStats" style="margin-bottom:16px"></div>
+            <div class="table-wrap" id="strategyTable"></div>
+        </div>
+        <div class="chart-card full-width">
+            <h3>💰 策略 B：1 手申购 · 首日卖出（100 账户 · 每户 1 万港币）</h3>
+            <p style="color:#94a3b8;font-size:13px;margin-bottom:12px">假设：每个账户申购 1 手 · 中签后首日卖出 · 资金循环使用 · 不计手续费和融资利息</p>
+            <div class="stats-grid" id="strategyStatsB" style="margin-bottom:16px"></div>
+            <div class="table-wrap" id="strategyTableB"></div>
+        </div>
+        <div class="chart-card full-width">
+            <h3>💰 策略 C：10 手融资申购 · 首日卖出（100 账户 · 每户 1 万港币 · 融资 ×10）</h3>
+            <p style="color:#94a3b8;font-size:13px;margin-bottom:12px">假设：每个账户融资申购 10 手 · 中签后首日卖出 · 中签分配 10 手 · 不限每手成本 · 资金循环使用 · 不计手续费和融资利息</p>
+            <div class="stats-grid" id="strategyStatsC" style="margin-bottom:16px"></div>
+            <div class="table-wrap" id="strategyTableC"></div>
+        </div>
+        <div class="chart-card full-width">
+            <h3>💰 策略 D：10 手融资申购 · 持有至今（100 账户 · 每户 1 万港币 · 融资 ×10）</h3>
+            <p style="color:#94a3b8;font-size:13px;margin-bottom:12px">假设：每个账户融资申购 10 手 · 中签后持有至今 · 中签分配 10 手 · 不限每手成本 · 资金循环使用 · 不计手续费和融资利息</p>
+            <div class="stats-grid" id="strategyStatsD" style="margin-bottom:16px"></div>
+            <div class="table-wrap" id="strategyTableD"></div>
+        </div>
+        <div class="chart-card full-width">
+            <h3>� 完整 IPO 数据表（按累计涨幅排序）</h3>
             <div class="table-wrap" id="dataTable"></div>
         </div>
     </div>
@@ -536,6 +560,263 @@ new Chart(document.getElementById('winRateChart'), {
     },
     plugins: [ChartDataLabels]
 });
+
+// 9. Strategy: 100 accounts × ¥10,000 HKD
+const ACCOUNTS = 100;
+const CAPITAL_PER_ACCOUNT = 10000;
+const TOTAL_CAPITAL = ACCOUNTS * CAPITAL_PER_ACCOUNT;
+
+const strategyData = data.map(d => {
+    const ipoPrice = num(d['招股价']);
+    const lastPrice = num(d['最后价格']);
+    const lotSize = num(d['批量']);
+    const winRate = pct(d['单批次成功率']);
+    if (!ipoPrice || !lastPrice || !lotSize || winRate === null) return null;
+    const costPerLot = ipoPrice * lotSize;
+    const canApply = costPerLot <= CAPITAL_PER_ACCOUNT;
+    const expectedWins = canApply ? ACCOUNTS * (winRate / 100) : 0;
+    const profitPerLot = (lastPrice - ipoPrice) * lotSize;
+    const expectedProfit = expectedWins * profitPerLot;
+    return { name: d['姓名'], code: d['代码'], date: d['上市日期'], ipoPrice, lastPrice, lotSize, costPerLot, canApply, winRate, expectedWins, profitPerLot, expectedProfit };
+}).filter(d => d !== null);
+
+const totalProfit = strategyData.reduce((s, d) => s + d.expectedProfit, 0);
+const totalROI = totalProfit / TOTAL_CAPITAL * 100;
+const daysSpan = (new Date('2026-05-06') - new Date('2026-01-02')) / 86400000;
+const annualizedROI = totalROI * 365 / daysSpan;
+const participated = strategyData.filter(d => d.canApply).length;
+const skipped = strategyData.filter(d => !d.canApply).length;
+const profitable = strategyData.filter(d => d.canApply && d.expectedProfit > 0).length;
+const losing = strategyData.filter(d => d.canApply && d.expectedProfit < 0).length;
+
+document.getElementById('strategyStats').innerHTML = `
+    <div class="stat-card"><div class="value blue">${ACCOUNTS} 户 × ¥1万</div><div class="label">账户配置</div></div>
+    <div class="stat-card"><div class="value blue">¥${(TOTAL_CAPITAL/10000).toFixed(0)} 万</div><div class="label">总资金（港币）</div></div>
+    <div class="stat-card"><div class="value ${totalProfit>=0?'green':'red'}">¥${Math.round(totalProfit).toLocaleString()}</div><div class="label">预估总收益</div></div>
+    <div class="stat-card"><div class="value ${totalROI>=0?'green':'red'}">${totalROI.toFixed(2)}%</div><div class="label">总收益率</div></div>
+    <div class="stat-card"><div class="value ${annualizedROI>=0?'green':'red'}">${annualizedROI.toFixed(1)}%</div><div class="label">年化收益率</div></div>
+    <div class="stat-card"><div class="value green">${participated} 只</div><div class="label">可参与（${profitable}盈 / ${losing}亏）</div></div>
+    <div class="stat-card"><div class="value red">${skipped} 只</div><div class="label">每手超¥1万跳过</div></div>
+    <div class="stat-card"><div class="value amber">¥${Math.round(totalProfit/participated).toLocaleString()}</div><div class="label">平均每只收益</div></div>
+`;
+
+let sHTML = `<table><thead><tr>
+    <th>#</th><th>名称</th><th>上市日期</th><th>每手股数</th><th>招股价</th><th>每手成本</th>
+    <th>中签率</th><th>期望中签(户)</th><th>最后价</th><th>每手盈亏</th><th>预估总收益</th>
+</tr></thead><tbody>`;
+[...strategyData].filter(d => d.canApply).sort((a, b) => b.expectedProfit - a.expectedProfit).forEach((d, i) => {
+    const pc = d.expectedProfit >= 0 ? 'badge-green' : 'badge-red';
+    const lc = d.profitPerLot >= 0 ? 'green' : 'red';
+    sHTML += `<tr>
+        <td>${i+1}</td><td><strong>${d.name}</strong></td><td>${d.date}</td>
+        <td>${d.lotSize}</td><td>${d.ipoPrice}</td><td>¥${Math.round(d.costPerLot).toLocaleString()}</td>
+        <td>${d.winRate}%</td><td>${d.expectedWins.toFixed(1)}</td><td>${d.lastPrice}</td>
+        <td class="${lc}">¥${Math.round(d.profitPerLot).toLocaleString()}</td>
+        <td><span class="badge ${pc}">¥${Math.round(d.expectedProfit).toLocaleString()}</span></td>
+    </tr>`;
+});
+if (skipped > 0) {
+    sHTML += `<tr><td colspan="11" style="text-align:center;color:#94a3b8;padding:12px">── 以下 ${skipped} 只因每手成本超过 ¥10,000 无法参与 ──</td></tr>`;
+    [...strategyData].filter(d => !d.canApply).sort((a, b) => b.profitPerLot - a.profitPerLot).forEach((d, i) => {
+        sHTML += `<tr style="opacity:0.45">
+            <td>-</td><td><strong>${d.name}</strong></td><td>${d.date}</td>
+            <td>${d.lotSize}</td><td>${d.ipoPrice}</td><td class="red">¥${Math.round(d.costPerLot).toLocaleString()}</td>
+            <td>${d.winRate}%</td><td>-</td><td>${d.lastPrice}</td>
+            <td>¥${Math.round(d.profitPerLot).toLocaleString()}</td>
+            <td><span class="badge badge-red">不可参与</span></td>
+        </tr>`;
+    });
+}
+sHTML += `<tr style="background:#334155;font-weight:bold">
+    <td colspan="10" style="text-align:right;padding:12px">预估总收益合计</td>
+    <td style="padding:12px"><span class="badge ${totalProfit>=0?'badge-green':'badge-red'}">¥${Math.round(totalProfit).toLocaleString()}</span></td>
+</tr>`;
+sHTML += '</tbody></table>';
+document.getElementById('strategyTable').innerHTML = sHTML;
+
+// 10. Strategy B: 1 lot, first-day sell
+const strategyB = data.map(d => {
+    const ipoPrice = num(d['招股价']);
+    const lotSize = num(d['批量']);
+    const winRate = pct(d['单批次成功率']);
+    const debut = pct(d['首日变化']);
+    if (!ipoPrice || !lotSize || winRate === null || debut === null) return null;
+    const costPerLot = ipoPrice * lotSize;
+    const canApply = costPerLot <= CAPITAL_PER_ACCOUNT;
+    const expectedWins = canApply ? ACCOUNTS * (winRate / 100) : 0;
+    const profitPerLot = ipoPrice * (debut / 100) * lotSize;
+    const expectedProfit = expectedWins * profitPerLot;
+    return { name: d['姓名'], date: d['上市日期'], ipoPrice, lotSize, costPerLot, canApply, winRate, expectedWins, debut, profitPerLot, expectedProfit };
+}).filter(d => d !== null);
+
+const totalProfitB = strategyB.reduce((s, d) => s + d.expectedProfit, 0);
+const totalROI_B = totalProfitB / TOTAL_CAPITAL * 100;
+const annualizedROI_B = totalROI_B * 365 / daysSpan;
+const participatedB = strategyB.filter(d => d.canApply).length;
+const skippedB = strategyB.filter(d => !d.canApply).length;
+const profitableB = strategyB.filter(d => d.canApply && d.expectedProfit > 0).length;
+const losingB = strategyB.filter(d => d.canApply && d.expectedProfit <= 0).length;
+
+document.getElementById('strategyStatsB').innerHTML = `
+    <div class="stat-card"><div class="value blue">${ACCOUNTS} 户 × ¥1万</div><div class="label">账户配置</div></div>
+    <div class="stat-card"><div class="value blue">¥${(TOTAL_CAPITAL/10000).toFixed(0)} 万</div><div class="label">总资金（港币）</div></div>
+    <div class="stat-card"><div class="value ${totalProfitB>=0?'green':'red'}">¥${Math.round(totalProfitB).toLocaleString()}</div><div class="label">预估总收益</div></div>
+    <div class="stat-card"><div class="value ${totalROI_B>=0?'green':'red'}">${totalROI_B.toFixed(2)}%</div><div class="label">总收益率</div></div>
+    <div class="stat-card"><div class="value ${annualizedROI_B>=0?'green':'red'}">${annualizedROI_B.toFixed(1)}%</div><div class="label">年化收益率</div></div>
+    <div class="stat-card"><div class="value green">${participatedB} 只</div><div class="label">可参与（${profitableB}盈 / ${losingB}亏）</div></div>
+    <div class="stat-card"><div class="value red">${skippedB} 只</div><div class="label">每手超¥1万跳过</div></div>
+    <div class="stat-card"><div class="value amber">¥${participatedB > 0 ? Math.round(totalProfitB/participatedB).toLocaleString() : 0}</div><div class="label">平均每只收益</div></div>
+`;
+
+let sBHTML = `<table><thead><tr>
+    <th>#</th><th>名称</th><th>上市日期</th><th>每手股数</th><th>招股价</th><th>每手成本</th>
+    <th>中签率</th><th>期望中签(户)</th><th>首日涨跌</th><th>每手盈亏</th><th>预估总收益</th>
+</tr></thead><tbody>`;
+[...strategyB].filter(d => d.canApply).sort((a, b) => b.expectedProfit - a.expectedProfit).forEach((d, i) => {
+    const pc = d.expectedProfit >= 0 ? 'badge-green' : 'badge-red';
+    const lc = d.profitPerLot >= 0 ? 'green' : 'red';
+    sBHTML += `<tr>
+        <td>${i+1}</td><td><strong>${d.name}</strong></td><td>${d.date}</td>
+        <td>${d.lotSize}</td><td>${d.ipoPrice}</td><td>¥${Math.round(d.costPerLot).toLocaleString()}</td>
+        <td>${d.winRate}%</td><td>${d.expectedWins.toFixed(1)}</td><td class="${d.debut>=0?'green':'red'}">${d.debut.toFixed(2)}%</td>
+        <td class="${lc}">¥${Math.round(d.profitPerLot).toLocaleString()}</td>
+        <td><span class="badge ${pc}">¥${Math.round(d.expectedProfit).toLocaleString()}</span></td>
+    </tr>`;
+});
+if (skippedB > 0) {
+    sBHTML += `<tr><td colspan="11" style="text-align:center;color:#94a3b8;padding:12px">── 以下 ${skippedB} 只因每手成本超过 ¥10,000 无法参与 ──</td></tr>`;
+    [...strategyB].filter(d => !d.canApply).sort((a, b) => b.profitPerLot - a.profitPerLot).forEach(d => {
+        sBHTML += `<tr style="opacity:0.45">
+            <td>-</td><td><strong>${d.name}</strong></td><td>${d.date}</td>
+            <td>${d.lotSize}</td><td>${d.ipoPrice}</td><td class="red">¥${Math.round(d.costPerLot).toLocaleString()}</td>
+            <td>${d.winRate}%</td><td>-</td><td class="${d.debut>=0?'green':'red'}">${d.debut.toFixed(2)}%</td>
+            <td>¥${Math.round(d.profitPerLot).toLocaleString()}</td>
+            <td><span class="badge badge-red">不可参与</span></td>
+        </tr>`;
+    });
+}
+sBHTML += `<tr style="background:#334155;font-weight:bold">
+    <td colspan="10" style="text-align:right;padding:12px">预估总收益合计</td>
+    <td style="padding:12px"><span class="badge ${totalProfitB>=0?'badge-green':'badge-red'}">¥${Math.round(totalProfitB).toLocaleString()}</span></td>
+</tr>`;
+sBHTML += '</tbody></table>';
+document.getElementById('strategyTableB').innerHTML = sBHTML;
+
+// 11. Strategy C: 10 lots, 10x margin, first-day sell
+const LEVERAGE = 10;
+const LOTS = 10;
+
+const strategyC = data.map(d => {
+    const ipoPrice = num(d['招股价']);
+    const lotSize = num(d['批量']);
+    const winRate = pct(d['单批次成功率']);
+    const debut = pct(d['首日变化']);
+    if (!ipoPrice || !lotSize || winRate === null || debut === null) return null;
+    const costPerLot = ipoPrice * lotSize;
+    const cost10 = costPerLot * LOTS;
+    const canApply = true;
+    const expectedWins = canApply ? ACCOUNTS * (winRate / 100) : 0;
+    const profitPerLot = ipoPrice * (debut / 100) * lotSize;
+    const profit10 = profitPerLot * LOTS;
+    const expectedProfit = expectedWins * profit10;
+    return { name: d['姓名'], date: d['上市日期'], ipoPrice, lotSize, costPerLot, cost10, canApply, winRate, expectedWins, debut, profitPerLot, profit10, expectedProfit };
+}).filter(d => d !== null);
+
+const totalProfitC = strategyC.reduce((s, d) => s + d.expectedProfit, 0);
+const totalROI_C = totalProfitC / TOTAL_CAPITAL * 100;
+const annualizedROI_C = totalROI_C * 365 / daysSpan;
+const participatedC = strategyC.filter(d => d.canApply).length;
+const skippedC = strategyC.filter(d => !d.canApply).length;
+const profitableC = strategyC.filter(d => d.canApply && d.expectedProfit > 0).length;
+const losingC = strategyC.filter(d => d.canApply && d.expectedProfit <= 0).length;
+
+document.getElementById('strategyStatsC').innerHTML = `
+    <div class="stat-card"><div class="value blue">${ACCOUNTS} 户 × ¥1万</div><div class="label">账户配置</div></div>
+    <div class="stat-card"><div class="value purple">融资 ${LEVERAGE} 倍 · ${LOTS} 手</div><div class="label">融资策略</div></div>
+    <div class="stat-card"><div class="value ${totalProfitC>=0?'green':'red'}">¥${Math.round(totalProfitC).toLocaleString()}</div><div class="label">预估总收益</div></div>
+    <div class="stat-card"><div class="value ${totalROI_C>=0?'green':'red'}">${totalROI_C.toFixed(2)}%</div><div class="label">总收益率（基于本金）</div></div>
+    <div class="stat-card"><div class="value ${annualizedROI_C>=0?'green':'red'}">${annualizedROI_C.toFixed(1)}%</div><div class="label">年化收益率</div></div>
+    <div class="stat-card"><div class="value green">${participatedC} 只</div><div class="label">可参与（${profitableC}盈 / ${losingC}亏）</div></div>
+    <div class="stat-card"><div class="value blue">${strategyC.length} 只</div><div class="label">参与 IPO 总数</div></div>
+    <div class="stat-card"><div class="value amber">¥${participatedC > 0 ? Math.round(totalProfitC/participatedC).toLocaleString() : 0}</div><div class="label">平均每只收益</div></div>
+`;
+
+let sCHTML = `<table><thead><tr>
+    <th>#</th><th>名称</th><th>上市日期</th><th>每手股数</th><th>招股价</th><th>每手成本</th><th>10手成本</th>
+    <th>中签率</th><th>期望中签(户)</th><th>首日涨跌</th><th>10手盈亏</th><th>预估总收益</th>
+</tr></thead><tbody>`;
+[...strategyC].filter(d => d.canApply).sort((a, b) => b.expectedProfit - a.expectedProfit).forEach((d, i) => {
+    const pc = d.expectedProfit >= 0 ? 'badge-green' : 'badge-red';
+    const lc = d.profit10 >= 0 ? 'green' : 'red';
+    sCHTML += `<tr>
+        <td>${i+1}</td><td><strong>${d.name}</strong></td><td>${d.date}</td>
+        <td>${d.lotSize}</td><td>${d.ipoPrice}</td><td>¥${Math.round(d.costPerLot).toLocaleString()}</td><td>¥${Math.round(d.cost10).toLocaleString()}</td>
+        <td>${d.winRate}%</td><td>${d.expectedWins.toFixed(1)}</td><td class="${d.debut>=0?'green':'red'}">${d.debut.toFixed(2)}%</td>
+        <td class="${lc}">¥${Math.round(d.profit10).toLocaleString()}</td>
+        <td><span class="badge ${pc}">¥${Math.round(d.expectedProfit).toLocaleString()}</span></td>
+    </tr>`;
+});
+sCHTML += `<tr style="background:#334155;font-weight:bold">
+    <td colspan="11" style="text-align:right;padding:12px">预估总收益合计</td>
+    <td style="padding:12px"><span class="badge ${totalProfitC>=0?'badge-green':'badge-red'}">¥${Math.round(totalProfitC).toLocaleString()}</span></td>
+</tr>`;
+sCHTML += '</tbody></table>';
+document.getElementById('strategyTableC').innerHTML = sCHTML;
+
+// 12. Strategy D: 10 lots, no cost limit, hold to now
+const strategyD = data.map(d => {
+    const ipoPrice = num(d['招股价']);
+    const lastPrice = num(d['最后价格']);
+    const lotSize = num(d['批量']);
+    const winRate = pct(d['单批次成功率']);
+    if (!ipoPrice || !lastPrice || !lotSize || winRate === null) return null;
+    const costPerLot = ipoPrice * lotSize;
+    const cost10 = costPerLot * LOTS;
+    const expectedWins = ACCOUNTS * (winRate / 100);
+    const profitPerLot = (lastPrice - ipoPrice) * lotSize;
+    const profit10 = profitPerLot * LOTS;
+    const expectedProfit = expectedWins * profit10;
+    return { name: d['姓名'], date: d['上市日期'], ipoPrice, lastPrice, lotSize, costPerLot, cost10, winRate, expectedWins, profitPerLot, profit10, expectedProfit };
+}).filter(d => d !== null);
+
+const totalProfitD = strategyD.reduce((s, d) => s + d.expectedProfit, 0);
+const totalROI_D = totalProfitD / TOTAL_CAPITAL * 100;
+const annualizedROI_D = totalROI_D * 365 / daysSpan;
+const profitableD = strategyD.filter(d => d.expectedProfit > 0).length;
+const losingD = strategyD.filter(d => d.expectedProfit <= 0).length;
+
+document.getElementById('strategyStatsD').innerHTML = `
+    <div class="stat-card"><div class="value blue">${ACCOUNTS} 户 × ¥1万</div><div class="label">账户配置</div></div>
+    <div class="stat-card"><div class="value purple">融资 ${LEVERAGE} 倍 · ${LOTS} 手</div><div class="label">融资策略</div></div>
+    <div class="stat-card"><div class="value ${totalProfitD>=0?'green':'red'}">¥${Math.round(totalProfitD).toLocaleString()}</div><div class="label">预估总收益</div></div>
+    <div class="stat-card"><div class="value ${totalROI_D>=0?'green':'red'}">${totalROI_D.toFixed(2)}%</div><div class="label">总收益率（基于本金）</div></div>
+    <div class="stat-card"><div class="value ${annualizedROI_D>=0?'green':'red'}">${annualizedROI_D.toFixed(1)}%</div><div class="label">年化收益率</div></div>
+    <div class="stat-card"><div class="value green">${strategyD.length} 只</div><div class="label">参与 IPO 总数</div></div>
+    <div class="stat-card"><div class="value green">${profitableD} 盈 / ${losingD} 亏</div><div class="label">盈亏分布</div></div>
+    <div class="stat-card"><div class="value amber">¥${strategyD.length > 0 ? Math.round(totalProfitD/strategyD.length).toLocaleString() : 0}</div><div class="label">平均每只收益</div></div>
+`;
+
+let sDHTML = `<table><thead><tr>
+    <th>#</th><th>名称</th><th>上市日期</th><th>每手股数</th><th>招股价</th><th>每手成本</th><th>10手成本</th>
+    <th>中签率</th><th>期望中签(户)</th><th>最后价</th><th>10手盈亏</th><th>预估总收益</th>
+</tr></thead><tbody>`;
+[...strategyD].sort((a, b) => b.expectedProfit - a.expectedProfit).forEach((d, i) => {
+    const pc = d.expectedProfit >= 0 ? 'badge-green' : 'badge-red';
+    const lc = d.profit10 >= 0 ? 'green' : 'red';
+    sDHTML += `<tr>
+        <td>${i+1}</td><td><strong>${d.name}</strong></td><td>${d.date}</td>
+        <td>${d.lotSize}</td><td>${d.ipoPrice}</td><td>¥${Math.round(d.costPerLot).toLocaleString()}</td><td>¥${Math.round(d.cost10).toLocaleString()}</td>
+        <td>${d.winRate}%</td><td>${d.expectedWins.toFixed(1)}</td><td>${d.lastPrice}</td>
+        <td class="${lc}">¥${Math.round(d.profit10).toLocaleString()}</td>
+        <td><span class="badge ${pc}">¥${Math.round(d.expectedProfit).toLocaleString()}</span></td>
+    </tr>`;
+});
+sDHTML += `<tr style="background:#334155;font-weight:bold">
+    <td colspan="11" style="text-align:right;padding:12px">预估总收益合计</td>
+    <td style="padding:12px"><span class="badge ${totalProfitD>=0?'badge-green':'badge-red'}">¥${Math.round(totalProfitD).toLocaleString()}</span></td>
+</tr>`;
+sDHTML += '</tbody></table>';
+document.getElementById('strategyTableD').innerHTML = sDHTML;
 
 // 8. Data table with sorting
 let currentSort = { key: '累计变化', dir: 'desc' };
