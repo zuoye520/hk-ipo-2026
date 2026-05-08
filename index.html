@@ -13,6 +13,7 @@
             background: #0f172a;
             color: #e2e8f0;
             padding: 24px;
+            overflow-x: hidden;
         }
         h1 {
             text-align: center;
@@ -20,6 +21,7 @@
             font-weight: 700;
             background: linear-gradient(135deg, #38bdf8, #818cf8);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
             margin-bottom: 8px;
         }
@@ -141,8 +143,74 @@
         .badge-green { background: #064e3b; color: #4ade80; }
         .badge-red { background: #450a0a; color: #f87171; }
         @media (max-width: 768px) {
-            .charts-grid { grid-template-columns: 1fr; }
             body { padding: 12px; }
+            h1 { font-size: 20px; }
+            .subtitle { font-size: 12px; margin-bottom: 20px; }
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+                margin-bottom: 20px;
+            }
+            .stat-card {
+                padding: 14px 10px;
+            }
+            .stat-card .value {
+                font-size: 18px;
+            }
+            .stat-card .label {
+                font-size: 11px;
+            }
+            .charts-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+                margin-bottom: 20px;
+            }
+            .chart-card {
+                padding: 16px 12px;
+            }
+            .chart-card h3 {
+                font-size: 14px;
+            }
+            .table-wrap {
+                max-height: 360px;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .table-wrap table {
+                min-width: 700px;
+            }
+            table { font-size: 12px; }
+            th { padding: 8px 8px; font-size: 11px; }
+            td { padding: 6px 8px; }
+        }
+        @media (max-width: 480px) {
+            body { padding: 8px; }
+            h1 { font-size: 18px; }
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+            .stat-card {
+                padding: 10px 6px;
+                border-radius: 8px;
+            }
+            .stat-card .value {
+                font-size: 15px;
+            }
+            .stat-card .label {
+                font-size: 10px;
+            }
+            .chart-card {
+                padding: 12px 8px;
+                border-radius: 8px;
+            }
+            .chart-card h3 {
+                font-size: 13px;
+                margin-bottom: 10px;
+            }
+            .table-wrap table {
+                min-width: 600px;
+            }
         }
     </style>
 </head>
